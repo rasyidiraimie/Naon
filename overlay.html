@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MLBB Draft Overlay</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Teko:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --blue: #2f8cff;
+    --red: #ff3b4f;
+    --gold: #f4c55b;
+    --panel: rgba(7, 12, 28, .94);
+    --panel-2: rgba(14, 22, 46, .94);
+    --line: rgba(255, 255, 255, .12);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; width: 100vw; height: 100vh; overflow: hidden; background: transparent; }
+  body { font-family: 'Rajdhani', 'Segoe UI', sans-serif; color: #fff; }
+  body.bg {
+    background:
+      radial-gradient(1200px 600px at 50% 35%, rgba(60, 90, 180, .35), transparent 70%),
+      linear-gradient(180deg, #060a18 0%, #0b1230 55%, #050814 100%);
+  }
+  #stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; }
+  .teko { font-family: 'Teko', 'Rajdhani', sans-serif; }
+
+  /* ---------- Header ---------- */
+  .header { position: absolute; top: 0; left: 0; right: 0; height: 132px; }
+  .team-bar {
+    position: absolute; top: 18px; height: 96px; width: 700px;
+    display: flex; align-items: center; gap: 18px; padding: 0 28px;
+    background: linear-gradient(90deg, var(--panel) 0%, var(--panel-2) 100%);
+    border-bottom: 4px solid var(--tc);
+  }
+  .team-bar.blue { left: 24px; clip-path: polygon(0 0, 100% 0, calc(100% - 40px) 100%, 0 100%); }
+  .team-bar.red  { right: 24px; flex-direction: row-reverse; text-align: right;
+                   background: linear-gradient(270deg, var(--panel) 0%, var(--panel-2) 100%);
+                   clip-path: polygon(0 0, 100% 0, 100% 100%, 40px 100%); }
+  .team-bar::before {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--tc) 35%, transparent), transparent 60%);
+  }
+  .team-bar.red::before { background: linear-gradient(270deg, color-mix(in srgb, var(--tc) 35%, transparent), transparent 60%); }
+  .logo {
+    position: relative; width: 72px; height: 72px; flex: none; display: grid; place-items: center;
+    background: var(--tc); clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+    font-family: 'Teko', sans-serif; font-size: 30px; font-weight: 600; letter-spacing: 1px;
+  }
+  .logo img { width: 100%; height: 100%; object-fit: contain; background: rgba(0,0,0,.25); }
+  .team-text { position: relative; min-width: 0; flex: 1; }
+  .team-name { font-family: 'Teko', sans-serif; font-size: 50px; line-height: .9; font-weight: 600;
+               letter-spacing: 1.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .team-side { font-size: 17px; font-weight: 700; letter-spacing: 4px; color: var(--tc); text-transform: uppercase; }
+  .score { position: relative; display: flex; gap: 8px; }
+  .team-bar.red .score { flex-direction: row-reverse; }
+  .pip { width: 16px; height: 34px; background: rgba(255,255,255,.12); transform: skewX(-14deg); }
+  .pip.on { background: var(--gold); box-shadow: 0 0 14px rgba(244,197,91,.7); }
+
+  .center {
+    position: absolute; top: 0; left: 50%; width: 440px; height: 148px; transform: translateX(-50%);
+    background: linear-gradient(180deg, #0d1530 0%, #070b1a 100%);
+    clip-path: polygon(0 0, 100% 0, calc(100% - 44px) 100%, 44px 100%);
+    text-align: center; padding-top: 10px;
+    border-top: 4px solid var(--gold);
+  }
+  .title { font-size: 16px; font-weight: 700; letter-spacing: 5px; color: var(--gold); }
+  .subtitle { font-size: 14px; font-weight: 600; letter-spacing: 3px; opacity: .7; margin-top: 1px; }
+  .timer-row { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 2px; }
+  .phase { font-family: 'Teko', sans-serif; font-size: 30px; letter-spacing: 2px; line-height: 1; width: 150px; }
+  .phase.l { text-align: right; } .phase.r { text-align: left; }
+  .clock { font-family: 'Teko', sans-serif; font-size: 72px; line-height: .9; width: 90px; font-weight: 600;
+           transition: color .2s; }
+  .clock.warn { color: #ff4d5e; animation: beat 1s infinite; }
+  @keyframes beat { 0%,100% { transform: scale(1); } 15% { transform: scale(1.15); } }
+  .bar { position: absolute; left: 70px; right: 70px; bottom: 12px; height: 5px; background: rgba(255,255,255,.1); }
+  .bar i { position: absolute; top: 0; bottom: 0; width: 100%; background: var(--ac, var(--gold)); transition: width .1s linear, background .3s; }
+  .bar.blue i { right: 0; } .bar.red i { left: 0; }
+
+  /* ---------- Bans ---------- */
+  .bans { position: absolute; top: 150px; display: flex; gap: 10px; align-items: flex-end; }
+  .bans.blue { left: 24px; }
+  .bans.red { right: 24px; flex-direction: row-reverse; }
+  .bans-label { font-size: 15px; font-weight: 700; letter-spacing: 4px; color: rgba(255,255,255,.55);
+                writing-mode: vertical-rl; transform: rotate(180deg); padding: 6px 0; }
+  .bans.red .bans-label { transform: none; }
+  .ban {
+    position: relative; width: 88px; height: 88px; overflow: hidden;
+    background: rgba(8, 12, 28, .88); border: 2px solid rgba(255,255,255,.1);
+  }
+  .ban .art { filter: grayscale(.85) brightness(.75); }
+  .ban.filled::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(135deg, transparent 47%, #ff3b4f 47%, #ff3b4f 53%, transparent 53%);
+    opacity: .9;
+  }
+  .ban.hovering .art { filter: none; opacity: .65; }
+  .ban.hovering::after { display: none; }
+  .ban .num { position: absolute; inset: 0; display: grid; place-items: center;
+              font-family: 'Teko', sans-serif; font-size: 30px; color: rgba(255,255,255,.18); }
+  .ban.filled .num, .ban.hovering .num { display: none; }
+  .ban .noban { position: absolute; inset: 0; display: none; place-items: center; text-align: center;
+                font-weight: 700; font-size: 15px; letter-spacing: 2px; color: rgba(255,255,255,.55); }
+  .ban.none .noban { display: grid; }
+  .ban.none::after { display: none; }
+  .ban.active { border-color: var(--tc); box-shadow: 0 0 0 2px var(--tc), 0 0 22px var(--tc); animation: pulse 1.2s infinite; }
+
+  /* ---------- Art tile ---------- */
+  .art { position: absolute; inset: 0; overflow: hidden;
+         background: linear-gradient(160deg, hsl(var(--hue) 70% 48%), hsl(calc(var(--hue) + 40) 60% 14%)); }
+  .art .ini { position: absolute; inset: 0; display: grid; place-items: center;
+              font-family: 'Teko', sans-serif; font-weight: 600; font-size: 46px; color: rgba(255,255,255,.35); }
+  .art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 15%; }
+
+  /* ---------- Spotlight ---------- */
+  .spot { position: absolute; top: 300px; left: 560px; right: 560px; height: 240px;
+          display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+          opacity: 0; transform: translateY(10px); transition: opacity .35s, transform .35s; }
+  .spot.show { opacity: 1; transform: none; }
+  .spot .who { font-size: 22px; font-weight: 700; letter-spacing: 6px; color: var(--sc, #fff); text-transform: uppercase; }
+  .spot .hero { font-family: 'Teko', sans-serif; font-size: 120px; line-height: .9; letter-spacing: 3px;
+                text-shadow: 0 6px 30px rgba(0,0,0,.6); white-space: nowrap; }
+  .spot .hero.dim { opacity: .45; }
+  .spot .line { width: 320px; height: 3px; margin-top: 10px;
+                background: linear-gradient(90deg, transparent, var(--sc, #fff), transparent); }
+
+  /* ---------- Picks ---------- */
+  .picks { position: absolute; bottom: 24px; display: flex; gap: 8px; }
+  .picks.blue { left: 24px; }
+  .picks.red { right: 24px; flex-direction: row-reverse; }
+  .pick {
+    position: relative; width: 160px; height: 440px; overflow: hidden;
+    background:
+      repeating-linear-gradient(135deg, rgba(255,255,255,.035) 0 10px, transparent 10px 20px),
+      linear-gradient(180deg, rgba(10,16,36,.92), rgba(5,8,20,.96));
+    border-bottom: 5px solid var(--tc);
+  }
+  .pick .empty { position: absolute; inset: 0; display: grid; place-items: center; }
+  .pick .empty span { font-family: 'Teko', sans-serif; font-size: 34px; letter-spacing: 2px; color: rgba(255,255,255,.14); }
+  .pick.filled .empty, .pick.hovering .empty { display: none; }
+  .pick .art { transform-origin: 50% 30%; }
+  .pick .art .ini { font-size: 90px; align-items: start; padding-top: 110px; }
+  .pick.hovering .art { opacity: .55; filter: saturate(.6); }
+  .pick .shade { position: absolute; inset: 0; pointer-events: none;
+                 background: linear-gradient(180deg, transparent 45%, rgba(0,0,0,.55) 70%, rgba(0,0,0,.92) 100%); }
+  .pick .hero-name { position: absolute; left: 0; right: 0; bottom: 52px; text-align: center;
+                     font-family: 'Teko', sans-serif; font-size: 34px; line-height: 1; letter-spacing: 1px;
+                     text-shadow: 0 2px 8px #000; padding: 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pick.hovering .hero-name { opacity: .6; }
+  .pick .plate { position: absolute; left: 0; right: 0; bottom: 0; height: 46px;
+                 display: flex; align-items: center; justify-content: center;
+                 background: linear-gradient(90deg, color-mix(in srgb, var(--tc) 80%, #000), color-mix(in srgb, var(--tc) 45%, #000));
+                 font-size: 21px; font-weight: 700; letter-spacing: 1px; padding: 0 8px;
+                 white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pick .order { position: absolute; top: 8px; left: 10px; font-size: 14px; font-weight: 700; letter-spacing: 2px; opacity: .6; }
+  .picks.red .pick .order { left: auto; right: 10px; }
+  .pick .glow { position: absolute; inset: 0; pointer-events: none; opacity: 0; }
+  .pick.active { box-shadow: 0 0 0 3px var(--tc), 0 0 34px color-mix(in srgb, var(--tc) 70%, transparent); animation: pulse 1.2s infinite; }
+  .pick.active .glow { opacity: 1;
+    background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--tc) 35%, transparent), transparent);
+    background-size: 100% 40%; background-repeat: no-repeat; animation: scan 1.6s linear infinite; }
+  @keyframes scan { from { background-position: 0 -60%; } to { background-position: 0 160%; } }
+  @keyframes pulse { 50% { filter: brightness(1.18); } }
+
+  .lock .art { animation: reveal .7s cubic-bezier(.2,.8,.2,1); }
+  .lock::before { content: ''; position: absolute; inset: 0; z-index: 5; background: #fff; pointer-events: none;
+                  animation: flash .6s ease-out forwards; }
+  @keyframes reveal { from { transform: scale(1.25); filter: brightness(2); } to { transform: none; } }
+  @keyframes flash { from { opacity: .85; } to { opacity: 0; } }
+  .ban.lock .art { animation: reveal-ban .6s ease-out; }
+  @keyframes reveal-ban { from { filter: none; transform: scale(1.3); } }
+
+  /* ---------- Center bottom ---------- */
+  .mid { position: absolute; bottom: 24px; left: 856px; width: 208px; height: 440px;
+         display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 14px; }
+  .vs { font-family: 'Teko', sans-serif; font-size: 96px; line-height: .8; color: var(--gold);
+        text-shadow: 0 0 30px rgba(244,197,91,.45); }
+  .game { font-size: 20px; font-weight: 700; letter-spacing: 5px; }
+  .bo { font-size: 14px; letter-spacing: 3px; opacity: .6; margin-top: -10px; }
+  .track { display: grid; grid-template-columns: repeat(10, 13px); gap: 5px; padding: 10px;
+           background: rgba(7,12,28,.85); border: 1px solid var(--line); }
+  .tick { height: 13px; background: rgba(255,255,255,.1); position: relative; }
+  .tick.t-pick { border-radius: 50%; }
+  .tick.done.t-blue { background: var(--blue-c); }
+  .tick.done.t-red { background: var(--red-c); }
+  .tick.cur { outline: 2px solid #fff; animation: pulse 1s infinite; background: rgba(255,255,255,.5); }
+  .legend { font-size: 12px; letter-spacing: 2px; opacity: .55; margin-top: -6px; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="header">
+    <div class="team-bar blue" id="tb-blue">
+      <div class="logo" id="logo-blue"></div>
+      <div class="team-text">
+        <div class="team-side">Blue Side</div>
+        <div class="team-name" id="name-blue"></div>
+      </div>
+      <div class="score" id="score-blue"></div>
+    </div>
+    <div class="center">
+      <div class="title" id="title"></div>
+      <div class="subtitle" id="subtitle"></div>
+      <div class="timer-row">
+        <div class="phase l teko" id="phase-a"></div>
+        <div class="clock" id="clock">30</div>
+        <div class="phase r teko" id="phase-b"></div>
+      </div>
+      <div class="bar" id="bar"><i id="bar-fill"></i></div>
+    </div>
+    <div class="team-bar red" id="tb-red">
+      <div class="logo" id="logo-red"></div>
+      <div class="team-text">
+        <div class="team-side">Red Side</div>
+        <div class="team-name" id="name-red"></div>
+      </div>
+      <div class="score" id="score-red"></div>
+    </div>
+  </div>
+
+  <div class="bans blue" id="bans-blue"><div class="bans-label">BANS</div></div>
+  <div class="bans red" id="bans-red"><div class="bans-label">BANS</div></div>
+
+  <div class="spot" id="spot">
+    <div class="who" id="spot-who"></div>
+    <div class="hero" id="spot-hero"></div>
+    <div class="line"></div>
+  </div>
+
+  <div class="picks blue" id="picks-blue"></div>
+  <div class="mid">
+    <div class="vs">VS</div>
+    <div class="game" id="game"></div>
+    <div class="bo" id="bo"></div>
+    <div class="track" id="track"></div>
+    <div class="legend">■ BAN &nbsp; ● PICK</div>
+  </div>
+  <div class="picks red" id="picks-red"></div>
+</div>
+
+<script src="draft.js"></script>
+<script>
+(function () {
+  'use strict';
+  const D = window.Draft;
+  const $ = id => document.getElementById(id);
+  const params = new URLSearchParams(location.search);
+  if (params.get('bg') !== '0') document.body.classList.add('bg');
+
+  const stage = $('stage');
+  function fit() {
+    const s = Math.min(innerWidth / 1920, innerHeight / 1080);
+    stage.style.transform = 'scale(' + s + ')';
+  }
+  addEventListener('resize', fit); fit();
+
+  // ---- Build static slots ----
+  const slots = { ban: { blue: [], red: [] }, pick: { blue: [], red: [] } };
+  ['blue', 'red'].forEach(side => {
+    for (let i = 0; i < 5; i++) {
+      const b = document.createElement('div');
+      b.className = 'ban';
+      b.innerHTML = '<div class="holder"></div><div class="num">' + (i + 1) + '</div><div class="noban">NO<br>BAN</div>';
+      $('bans-' + side).appendChild(b);
+      slots.ban[side].push(b);
+
+      const p = document.createElement('div');
+      p.className = 'pick';
+      p.innerHTML = '<div class="empty"><span>PICK ' + (i + 1) + '</span></div><div class="holder"></div>' +
+        '<div class="shade"></div><div class="glow"></div><div class="order">' + (i + 1) + '</div>' +
+        '<div class="hero-name"></div><div class="plate"></div>';
+      $('picks-' + side).appendChild(p);
+      slots.pick[side].push(p);
+    }
+  });
+  D.SEQ.forEach(s => {
+    const t = document.createElement('div');
+    t.className = 'tick t-' + s.type + ' t-' + s.side;
+    $('track').appendChild(t);
+  });
+
+  let S = D.load();
+  let first = true;
+
+  function setSlot(el, kind, locked, hover, active, s) {
+    const shown = locked || (active ? hover : null);
+    const isHover = !locked && !!shown;
+    const key = (shown || '') + '|' + isHover + '|' + s.imgBase + s.imgExt;
+    el.classList.toggle('active', active);
+    el.classList.toggle('filled', !!locked && locked !== D.NO_BAN);
+    el.classList.toggle('none', locked === D.NO_BAN);
+    el.classList.toggle('hovering', isHover);
+    if (el._key === key) return;
+    const prevLocked = el._locked;
+    el._key = key;
+    el._locked = locked;
+    el.querySelector('.holder').innerHTML = D.artHTML(shown, s);
+    const hn = el.querySelector('.hero-name');
+    if (hn) hn.textContent = shown || '';
+    if (!first && locked && locked !== prevLocked) {
+      el.classList.remove('lock'); void el.offsetWidth; el.classList.add('lock');
+      setTimeout(() => el.classList.remove('lock'), 800);
+    }
+  }
+
+  function render(s) {
+    S = s;
+    const root = document.documentElement.style;
+    root.setProperty('--blue-c', s.blue.color);
+    root.setProperty('--red-c', s.red.color);
+
+    $('title').textContent = s.title;
+    $('subtitle').textContent = s.subtitle;
+    $('game').textContent = s.game;
+    $('bo').textContent = 'BEST OF ' + s.bestOf;
+
+    const need = Math.ceil(s.bestOf / 2);
+    ['blue', 'red'].forEach(side => {
+      const t = s[side];
+      $('tb-' + side).style.setProperty('--tc', t.color);
+      $('bans-' + side).style.setProperty('--tc', t.color);
+      $('picks-' + side).style.setProperty('--tc', t.color);
+      $('name-' + side).textContent = t.name;
+      $('logo-' + side).innerHTML = t.logo
+        ? '<img alt="" src="' + D.esc(t.logo) + '">'
+        : D.esc(t.tag || t.name.slice(0, 3));
+      let pips = '';
+      for (let i = 0; i < need; i++) pips += '<div class="pip' + (i < t.score ? ' on' : '') + '"></div>';
+      $('score-' + side).innerHTML = pips;
+
+      for (let i = 0; i < 5; i++) {
+        const cur = D.SEQ[s.step];
+        const banActive = !!cur && cur.type === 'ban' && cur.side === side && cur.idx === i;
+        const pickActive = !!cur && cur.type === 'pick' && cur.side === side && cur.idx === i;
+        setSlot(slots.ban[side][i], 'ban', s.bans[side][i], s.hover, banActive, s);
+        setSlot(slots.pick[side][i], 'pick', s.picks[side][i], s.hover, pickActive, s);
+        slots.pick[side][i].querySelector('.plate').textContent = t.players[i] || '';
+      }
+    });
+
+    // Phase + timer bar side
+    const cur = D.SEQ[s.step];
+    const phase = D.phaseOf(s.step);
+    const words = phase.split(' ');
+    $('phase-a').textContent = cur ? words[0] : 'DRAFT';
+    $('phase-b').textContent = cur ? words.slice(1).join(' ') : 'DONE';
+    const bar = $('bar');
+    bar.className = 'bar ' + (cur ? cur.side : '');
+    bar.style.setProperty('--ac', cur ? s[cur.side].color : 'var(--gold)');
+    $('phase-a').style.color = cur && cur.side === 'blue' ? s.blue.color : '';
+    $('phase-b').style.color = cur && cur.side === 'red' ? s.red.color : '';
+
+    // Track
+    [...$('track').children].forEach((t, i) => {
+      t.classList.toggle('done', i < s.step || (D.SEQ[i] && slotValue(s, D.SEQ[i])));
+      t.classList.toggle('cur', i === s.step);
+    });
+
+    // Spotlight
+    const spot = $('spot');
+    if (cur) {
+      const t = s[cur.side];
+      spot.style.setProperty('--sc', t.color);
+      $('spot-who').textContent = t.name + (cur.type === 'ban' ? ' · BANNING' : ' · PICKING');
+      $('spot-hero').textContent = s.hover || (cur.type === 'ban' ? 'BAN ' + (cur.idx + 1) : 'PICK ' + (cur.idx + 1));
+      $('spot-hero').classList.toggle('dim', !s.hover);
+      spot.classList.add('show');
+    } else {
+      spot.style.setProperty('--sc', 'var(--gold)');
+      $('spot-who').textContent = s.blue.name + '  VS  ' + s.red.name;
+      $('spot-hero').textContent = 'DRAFT COMPLETE';
+      $('spot-hero').classList.remove('dim');
+      spot.classList.add('show');
+    }
+    tick();
+    first = false;
+  }
+
+  function slotValue(s, st) { return (st.type === 'ban' ? s.bans : s.picks)[st.side][st.idx]; }
+
+  function tick() {
+    const t = S.timer;
+    const left = D.timeLeft(t);
+    const cur = D.SEQ[S.step];
+    $('clock').textContent = cur ? Math.ceil(left) : '—';
+    $('clock').classList.toggle('warn', !!cur && t.running && left <= 5 && left > 0);
+    $('bar-fill').style.width = (cur ? Math.min(100, left / t.duration * 100) : 0) + '%';
+  }
+  setInterval(tick, 100);
+
+  D.subscribe(render, () => S.rev);
+  render(S);
+})();
+</script>
+</body>
+</html>

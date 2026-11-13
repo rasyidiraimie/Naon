@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Draft Control</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --bg: #0b0f1c; --card: #141a2e; --card2: #1b2340; --line: #2a3354; --txt: #e8ecf8; --mut: #8a94b5;
+          --gold: #f4c55b; --blue: #2f8cff; --red: #ff3b4f; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--txt); font-family: 'Rajdhani', 'Segoe UI', sans-serif; font-size: 15px; }
+  button, input, select { font: inherit; color: inherit; }
+  input, select { background: #0d1224; border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; width: 100%; min-width: 0; }
+  input:focus, select:focus { outline: 2px solid var(--gold); outline-offset: -1px; }
+  input[type=color] { padding: 0; height: 34px; cursor: pointer; }
+  button { background: var(--card2); border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; cursor: pointer; font-weight: 700; letter-spacing: .5px; }
+  button:hover { border-color: var(--mut); }
+  button.primary { background: var(--gold); color: #1a1300; border-color: var(--gold); }
+  button.danger { color: #ff8a95; }
+  kbd { font-size: 11px; background: rgba(255,255,255,.1); border-radius: 3px; padding: 1px 4px; margin-left: 4px; opacity: .8; }
+
+  header { position: sticky; top: 0; z-index: 10; display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+           padding: 10px 16px; background: #080b16; border-bottom: 1px solid var(--line); }
+  .status { flex: 1; min-width: 240px; display: flex; align-items: center; gap: 12px; }
+  .status .dot { width: 14px; height: 14px; border-radius: 50%; background: var(--mut); flex: none; }
+  .status b { font-size: 22px; letter-spacing: 1px; }
+  .status small { color: var(--mut); display: block; letter-spacing: 2px; }
+  .clock { font-size: 30px; font-weight: 700; width: 48px; text-align: center; }
+
+  main { display: grid; grid-template-columns: 360px 1fr; gap: 16px; padding: 16px; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin-bottom: 16px; }
+  .card h3 { margin: 0 0 10px; font-size: 14px; letter-spacing: 3px; color: var(--mut); display: flex; align-items: center; gap: 8px; }
+  .card h3 .sw { width: 10px; height: 10px; border-radius: 2px; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+  .row.three { grid-template-columns: 2fr 1fr 1fr; }
+  label { display: block; font-size: 12px; color: var(--mut); letter-spacing: 1px; margin-bottom: 3px; }
+  .players input { margin-bottom: 6px; }
+  .check { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+  .check input { width: auto; }
+
+  /* Board */
+  .board { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .side h4 { margin: 0 0 6px; font-size: 16px; letter-spacing: 1px; }
+  .slots { display: flex; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
+  .slot { position: relative; width: 58px; height: 58px; border-radius: 6px; overflow: hidden; cursor: pointer;
+          background: #0d1224; border: 2px solid var(--line); display: grid; place-items: center; color: var(--mut); font-size: 12px; font-weight: 700; }
+  .slot.pk { height: 76px; }
+  .slot .art { position: absolute; inset: 0; }
+  .slot .lbl { position: absolute; left: 0; right: 0; bottom: 0; font-size: 10px; text-align: center; background: rgba(0,0,0,.65); color: #fff;
+               white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 1px 2px; }
+  .slot.cur { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold); }
+  .slot.ban .art { filter: grayscale(.7); }
+  .slot.hov .art { opacity: .5; }
+
+  .art { background: linear-gradient(160deg, hsl(var(--hue) 70% 48%), hsl(calc(var(--hue) + 40) 60% 14%)); }
+  .art .ini { position: absolute; inset: 0; display: grid; place-items: center; font-weight: 700; font-size: 20px; color: rgba(255,255,255,.55); }
+  .art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 15%; }
+
+  .tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+  .tools input { flex: 1; min-width: 180px; font-size: 17px; padding: 9px 12px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; }
+  .hero { position: relative; aspect-ratio: 1 / 1.15; border-radius: 8px; overflow: hidden; padding: 0; border: 2px solid transparent; }
+  .hero .art { position: absolute; inset: 0; }
+  .hero span.n { position: absolute; left: 0; right: 0; bottom: 0; padding: 3px 2px; font-size: 13px; background: rgba(0,0,0,.7);
+                 white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hero.sel { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold); }
+  .hero.used { opacity: .22; cursor: not-allowed; }
+  .hint { color: var(--mut); font-size: 13px; line-height: 1.5; }
+  .muted { color: var(--mut); }
+</style>
+</head>
+<body>
+<header>
+  <div class="status">
+    <div class="dot" id="dot"></div>
+    <div><small id="phase">BAN PHASE 1</small><b id="who">—</b></div>
+    <div class="clock" id="clock">30</div>
+  </div>
+  <button class="primary" id="lock">LOCK<kbd>Enter</kbd></button>
+  <button id="skip">NO BAN</button>
+  <button id="undo">UNDO<kbd>Ctrl+Z</kbd></button>
+  <button id="timer">START<kbd>Space</kbd></button>
+  <button id="treset">RESET TIMER</button>
+  <button id="open">BUKA OVERLAY</button>
+</header>
+
+<main>
+  <aside>
+    <div class="card" id="team-blue"></div>
+    <div class="card" id="team-red"></div>
+    <div class="card">
+      <h3>MATCH</h3>
+      <label>Judul</label><input data-k="title">
+      <div style="height:8px"></div>
+      <label>Sub-judul</label><input data-k="subtitle">
+      <div style="height:8px"></div>
+      <div class="row">
+        <div><label>Game</label><input data-k="game"></div>
+        <div><label>Best of</label>
+          <select data-k="bestOf" data-num><option>1</option><option>3</option><option>5</option><option>7</option></select></div>
+      </div>
+      <div class="row">
+        <div><label>Durasi timer (detik)</label><input type="number" min="5" max="120" id="dur"></div>
+        <div style="display:flex;align-items:end"><label class="check"><input type="checkbox" id="auto"> Auto-start tiap giliran</label></div>
+      </div>
+      <div class="row">
+        <div><label>Folder gambar hero</label><input data-k="imgBase"></div>
+        <div><label>Ekstensi</label><input data-k="imgExt"></div>
+      </div>
+      <div class="tools" style="margin:6px 0 0">
+        <button id="swap">TUKAR SISI</button>
+        <button class="danger" id="reset">RESET DRAFT</button>
+      </div>
+    </div>
+    <div class="card hint">
+      <b>Cara pakai cepat</b><br>
+      Klik hero = sorot (muncul di overlay sebagai preview). Klik lagi / <b>Enter</b> = kunci & lanjut giliran.<br>
+      Ketik nama di kolom cari lalu <b>Enter</b> untuk menyorot hasil pertama, <b>Enter</b> lagi untuk kunci.<br>
+      Klik slot di papan draft untuk mengoreksi slot tersebut. <b>Esc</b> = batal sorot. <b>/</b> = fokus pencarian.
+    </div>
+  </aside>
+
+  <section>
+    <div class="card">
+      <h3>PAPAN DRAFT</h3>
+      <div class="board" id="board"></div>
+    </div>
+    <div class="card">
+      <div class="tools">
+        <input id="q" placeholder="Cari hero…  ( / )" autocomplete="off">
+        <input id="custom" placeholder="Tambah hero baru" style="flex:0 1 200px;min-width:140px">
+        <button id="addc">TAMBAH</button>
+      </div>
+      <div class="grid" id="grid"></div>
+    </div>
+  </section>
+</main>
+
+<script src="draft.js"></script>
+<script>
+(function () {
+  'use strict';
+  const D = window.Draft;
+  const $ = id => document.getElementById(id);
+  let S = D.load();
+
+  function commit() { D.save(S); render(); }
+  const slotArr = st => (st.type === 'ban' ? S.bans : S.picks)[st.side];
+
+  // ---- Draft actions ----
+  function resetTimerForStep() {
+    const t = S.timer;
+    t.remaining = t.duration;
+    if (t.auto && S.step < D.SEQ.length) { t.running = true; t.endsAt = Date.now() + t.duration * 1000; }
+    else t.running = false;
+  }
+  function nextEmpty(from) {
+    for (let i = from; i < D.SEQ.length; i++) if (!slotArr(D.SEQ[i])[D.SEQ[i].idx]) return i;
+    for (let i = 0; i < from; i++) if (!slotArr(D.SEQ[i])[D.SEQ[i].idx]) return i;
+    return D.SEQ.length;
+  }
+  function usedSet() {
+    const u = new Set();
+    ['blue','red'].forEach(s => { S.bans[s].concat(S.picks[s]).forEach(h => h && h !== D.NO_BAN && u.add(h)); });
+    return u;
+  }
+  function hover(name) {
+    if (S.step >= D.SEQ.length) return;
+    if (usedSet().has(name)) return;
+    if (S.hover === name) return lock();
+    S.hover = name; commit();
+  }
+  function lock(value) {
+    const cur = D.SEQ[S.step];
+    if (!cur) return;
+    const v = value || S.hover;
+    if (!v) return;
+    slotArr(cur)[cur.idx] = v;
+    S.hover = null;
+    S.step = nextEmpty(S.step + 1);
+    resetTimerForStep();
+    $('q').value = ''; renderGrid();
+    commit();
+  }
+  function undo() {
+    if (S.hover) { S.hover = null; return commit(); }
+    // find last filled step before current in sequence order
+    for (let i = Math.min(S.step, D.SEQ.length) - 1; i >= 0; i--) {
+      const st = D.SEQ[i];
+      if (slotArr(st)[st.idx]) {
+        S.hover = slotArr(st)[st.idx] === D.NO_BAN ? null : slotArr(st)[st.idx];
+        slotArr(st)[st.idx] = null;
+        S.step = i; resetTimerForStep(); return commit();
+      }
+    }
+  }
+  function jump(i) {
+    const st = D.SEQ[i];
+    const v = slotArr(st)[st.idx];
+    slotArr(st)[st.idx] = null;
+    S.hover = v && v !== D.NO_BAN ? v : null;
+    S.step = i; resetTimerForStep(); commit();
+  }
+  function toggleTimer() {
+    const t = S.timer;
+    if (t.running) { t.remaining = D.timeLeft(t); t.running = false; }
+    else { if (t.remaining <= 0) t.remaining = t.duration; t.running = true; t.endsAt = Date.now() + t.remaining * 1000; }
+    commit();
+  }
+
+  // ---- Settings UI ----
+  function teamCard(side) {
+    const el = $('team-' + side);
+    el.innerHTML =
+      '<h3><span class="sw" data-sw></span>' + side.toUpperCase() + ' SIDE</h3>' +
+      '<div class="row three"><div><label>Nama tim</label><input data-t="name"></div>' +
+      '<div><label>Tag</label><input data-t="tag" maxlength="5"></div>' +
+      '<div><label>Warna</label><input type="color" data-t="color"></div></div>' +
+      '<div class="row"><div><label>URL / path logo</label><input data-t="logo" placeholder="logos/tim.png"></div>' +
+      '<div><label>Skor (game menang)</label><input type="number" min="0" max="4" data-t="score"></div></div>' +
+      '<label>Pemain (urutan slot pick 1–5)</label><div class="players">' +
+      [0,1,2,3,4].map(i => '<input data-p="' + i + '">').join('') + '</div>';
+    el.querySelectorAll('[data-t]').forEach(inp => inp.addEventListener('input', () => {
+      const k = inp.dataset.t;
+      S[side][k] = k === 'score' ? (parseInt(inp.value, 10) || 0) : inp.value;
+      commit();
+    }));
+    el.querySelectorAll('[data-p]').forEach(inp => inp.addEventListener('input', () => {
+      S[side].players[+inp.dataset.p] = inp.value; commit();
+    }));
+  }
+  teamCard('blue'); teamCard('red');
+  document.querySelectorAll('[data-k]').forEach(inp => inp.addEventListener('input', () => {
+    S[inp.dataset.k] = inp.hasAttribute('data-num') ? parseInt(inp.value, 10) : inp.value;
+    commit(); if (inp.dataset.k.startsWith('img')) renderGrid();
+  }));
+  $('dur').addEventListener('change', () => {
+    const v = Math.max(5, Math.min(120, parseInt($('dur').value, 10) || 30));
+    S.timer.duration = v; if (!S.timer.running) S.timer.remaining = v; commit();
+  });
+  $('auto').addEventListener('change', () => { S.timer.auto = $('auto').checked; commit(); });
+
+  function fillInputs() {
+    const active = document.activeElement;
+    const setv = (inp, v) => { if (inp !== active) inp.value = v == null ? '' : v; };
+    ['blue','red'].forEach(side => {
+      const el = $('team-' + side);
+      el.querySelector('[data-sw]').style.background = S[side].color;
+      el.querySelectorAll('[data-t]').forEach(inp => setv(inp, S[side][inp.dataset.t]));
+      el.querySelectorAll('[data-p]').forEach(inp => setv(inp, S[side].players[+inp.dataset.p]));
+    });
+    document.querySelectorAll('[data-k]').forEach(inp => setv(inp, S[inp.dataset.k]));
+    setv($('dur'), S.timer.duration);
+    $('auto').checked = !!S.timer.auto;
+  }
+
+  // ---- Board ----
+  function renderBoard() {
+    const html = ['blue','red'].map(side => {
+      const t = S[side];
+      const row = (type) => [0,1,2,3,4].map(i => {
+        const si = D.SEQ.findIndex(s => s.type === type && s.side === side && s.idx === i);
+        const v = (type === 'ban' ? S.bans : S.picks)[side][i];
+        const isCur = si === S.step;
+        const shown = v || (isCur ? S.hover : null);
+        let inner;
+        if (v === D.NO_BAN) inner = 'NO BAN';
+        else if (shown) inner = D.artHTML(shown, S) + '<div class="lbl">' + D.esc(shown) + '</div>';
+        else inner = (type === 'ban' ? 'B' : 'P') + (i + 1);
+        return '<div class="slot ' + (type === 'ban' ? 'ban' : 'pk') + (isCur ? ' cur' : '') + (!v && shown ? ' hov' : '') +
+          '" data-step="' + si + '" title="Langkah ' + (si + 1) + '">' + inner + '</div>';
+      }).join('');
+      return '<div class="side"><h4 style="color:' + D.esc(t.color) + '">' + D.esc(t.name) + '</h4>' +
+        '<div class="slots">' + row('ban') + '</div><div class="slots">' + row('pick') + '</div></div>';
+    }).join('');
+    $('board').innerHTML = html;
+    $('board').querySelectorAll('.slot').forEach(el => el.addEventListener('click', () => jump(+el.dataset.step)));
+  }
+
+  // ---- Hero grid ----
+  function allHeroes() {
+    return [...new Set(D.HEROES.concat(S.customHeroes || []))].sort((a, b) => a.localeCompare(b));
+  }
+  function filtered() {
+    const q = $('q').value.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+    return allHeroes().filter(h => !q || D.slug(h).includes(q));
+  }
+  let gridKey = '';
+  function renderGrid() {
+    const used = usedSet();
+    const list = filtered();
+    const key = list.join(',') + '|' + S.imgBase + S.imgExt;
+    if (key !== gridKey) {
+      gridKey = key;
+      $('grid').innerHTML = list.map(h =>
+        '<button class="hero" data-h="' + D.esc(h) + '">' + D.artHTML(h, S) + '<span class="n">' + D.esc(h) + '</span></button>'
+      ).join('') || '<div class="muted">Tidak ada hero cocok.</div>';
+      $('grid').querySelectorAll('.hero').forEach(b => b.addEventListener('click', () => hover(b.dataset.h)));
+    }
+    $('grid').querySelectorAll('.hero').forEach(b => {
+      b.classList.toggle('used', used.has(b.dataset.h));
+      b.classList.toggle('sel', S.hover === b.dataset.h);
+    });
+  }
+  $('q').addEventListener('input', renderGrid);
+  $('q').addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault(); e.stopPropagation();
+    const used = usedSet();
+    const first = filtered().find(h => !used.has(h));
+    if (S.hover && (!first || S.hover === first)) lock();
+    else if (first) hover(first);
+  });
+  $('addc').addEventListener('click', () => {
+    const n = $('custom').value.trim();
+    if (!n) return;
+    S.customHeroes = [...new Set((S.customHeroes || []).concat(n))];
+    $('custom').value = ''; commit(); renderGrid();
+  });
+
+  // ---- Header ----
+  function renderHeader() {
+    const cur = D.SEQ[S.step];
+    $('phase').textContent = D.phaseOf(S.step);
+    $('who').textContent = cur ? S[cur.side].name + ' — ' + (cur.type === 'ban' ? 'BAN ' : 'PICK ') + (cur.idx + 1) +
+      (S.hover ? ' : ' + S.hover : '') : 'Draft selesai';
+    $('dot').style.background = cur ? S[cur.side].color : 'var(--gold)';
+    $('skip').disabled = !cur || cur.type !== 'ban';
+    $('lock').disabled = !cur || !S.hover;
+    $('timer').firstChild.textContent = S.timer.running ? 'PAUSE' : 'START';
+  }
+  function tick() {
+    const cur = D.SEQ[S.step];
+    $('clock').textContent = cur ? Math.ceil(D.timeLeft(S.timer)) : '—';
+  }
+  setInterval(tick, 200);
+
+  function render() { renderHeader(); renderBoard(); renderGrid(); fillInputs(); tick(); }
+
+  $('lock').onclick = () => lock();
+  $('skip').onclick = () => { const c = D.SEQ[S.step]; if (c && c.type === 'ban') lock(D.NO_BAN); };
+  $('undo').onclick = undo;
+  $('timer').onclick = toggleTimer;
+  $('treset').onclick = () => { S.timer.running = false; S.timer.remaining = S.timer.duration; commit(); };
+  $('open').onclick = () => window.open('overlay.html', 'mlbb-overlay');
+  $('swap').onclick = () => {
+    const b = S.blue, r = S.red;
+    S.blue = Object.assign({}, r, { color: b.color });
+    S.red = Object.assign({}, b, { color: r.color });
+    commit();
+  };
+  $('reset').onclick = () => {
+    if (!confirm('Reset semua pick & ban?')) return;
+    S.bans = { blue: [null,null,null,null,null], red: [null,null,null,null,null] };
+    S.picks = { blue: [null,null,null,null,null], red: [null,null,null,null,null] };
+    S.step = 0; S.hover = null;
+    S.timer.running = false; S.timer.remaining = S.timer.duration;
+    commit();
+  };
+
+  document.addEventListener('keydown', e => {
+    const typing = /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName);
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !typing) { e.preventDefault(); undo(); return; }
+    if (typing) { if (e.key === 'Escape') document.activeElement.blur(); return; }
+    if (e.key === 'Enter') { e.preventDefault(); lock(); }
+    else if (e.key === 'Escape') { S.hover = null; commit(); }
+    else if (e.key === ' ') { e.preventDefault(); toggleTimer(); }
+    else if (e.key === '/') { e.preventDefault(); $('q').focus(); }
+  });
+
+  D.subscribe(s => { S = s; render(); }, () => S.rev);
+  render();
+})();
+</script>
+</body>
+</html>
